@@ -6,6 +6,7 @@ connection.on('error', (err) => console.error(err));
 
 connection.once('open', async () => {
   console.log('connected');
+
   let thoughtCheck = await connection.db.listCollections({ name: 'thoughts' }).toArray();
   if (thoughtCheck.length) {
     await connection.dropCollection('thoughts');
@@ -18,17 +19,29 @@ connection.once('open', async () => {
 
 
   const users = getRandomUsers(20);
-
-  await User.insertMany(users);
+  const userDocs = [];
 
   for (const user of users) {
-    const createdThoughts = await Thought.insertMany(user.thoughts);
+    const thoughts = user.thoughts.map(thought => ({
+      thoughtText: thought.thoughtText,
+      username: user.username,
+      reactions: thought.reactions,
+    }));
+
+    const createdThoughts = await Thought.insertMany(thoughts);
 
     const thoughtIds = createdThoughts.map(thought => thought._id);
-    await User.updateOne({ username: user.username }, { $set: { thoughts: thoughtIds } });
+
+    userDocs.push({
+      ...user,
+      thoughts: thoughtIds, 
+    });
   }
 
-  console.table(users);
+
+  await User.insertMany(userDocs);
+
+  console.table(userDocs);
   console.info('Seeding complete! 🌱');
   process.exit(0);
 });
